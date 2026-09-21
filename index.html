@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Remember11 &mdash; The Age of Infinity &mdash; script flow</title>
+<style type="text/css" media="screen">
+
+html, body, #app { height: 100% }
+body { color: black; font-size: 16px; font-family: "MS PGothic", Osaka, sans-serif;
+       line-height: 18px; background-color: white; margin: 0; padding: 0 }
+
+#page { width: 1120px; margin: 0 auto; height: 100%;
+        display: flex; flex-direction: column }
+#top { flex: 0 0 auto; background-color: white; padding-top: 2px;
+       border-bottom: 1px solid #7fa9ff }
+h1 { color: #009; font-weight: bold; background-color: #6cf;
+     margin: 4px 0 6px 0; padding: 3px 8px; font-size: 18px }
+h3 { color: #009; font-weight: bold; background-color: #6cf;
+     margin: 12px 0 6px 0; padding: 2px 8px; font-size: 16px }
+p { margin: 6px 0 }
+a { color: #009 }
+
+table { border-collapse: collapse; width: 100% }
+td { padding: 2px 6px; vertical-align: top }
+.id { width: 108px; white-space: nowrap }
+.tx { white-space: pre-wrap }
+.r0 td { background-color: #eef4ff }
+.r1 td { background-color: #ffffff }
+.who { color: #009; font-weight: bold }
+.nar .who { color: #999; font-weight: normal; font-style: italic }
+.cmd { color: #666; font-size: 12px; font-family: monospace }
+
+.titlerow td { border-top: 1px solid #a8c2e8; border-bottom: 1px solid #a8c2e8;
+               background-color: #eef3fb; color: #003; padding: 3px 8px }
+.titlerow td.tx { font-weight: bold; text-align: center }
+
+.cmdrow td { color: #777; font-family: monospace; font-size: 12px;
+             background-color: #f7f7f7; padding: 0 6px }
+.cmdrow .op { color: #009 }
+.rawrow td { color: #999; font-family: monospace; font-size: 11px;
+             background-color: #fbfbfb; padding: 0 6px }
+.rawrow .bytes { word-break: break-all }
+.cmdrow, .rawrow { display: none }
+#page.debug .cmdrow, #page.debug .rawrow { display: table-row }
+.m { display: none }
+#page.debug .m { display: inline }
+#dbg { color: #555; font-size: 12px; font-family: monospace }
+#page.debug #dbg { display: block }
+
+.scene { border: 1px solid #7fa9ff; margin: 0 0 14px 0 }
+.hd { background-color: #7fa9ff; font-weight: bold; padding: 2px 8px; cursor: pointer }
+.hd .n { color: #003; font-family: monospace }
+.hd .m { font-weight: normal; color: #22406e; float: right }
+.bd { padding: 2px 0 }
+.hidden { display: none }
+
+#page:not(.mode-all) .ln.un,
+#page:not(.mode-all) .titlerow.un,
+#page:not(.mode-all) .chwrap.un { display: none }
+
+.choice { border: 1px solid #a6caff; margin: 2px 0 }
+.chd { background-color: #a6caff; color: #003; font-weight: bold;
+       padding: 1px 6px; font-size: 14px }
+.chd .m { font-weight: normal; color: #22406e; float: right }
+.opt { border-top: 1px solid #cfe2ff }
+.ohd { background-color: #eef4ff; padding: 2px 6px; cursor: pointer; font-size: 14px }
+.ohd:hover { background-color: #dce8ff }
+.ohd .tw { color: #557; display: inline-block; width: 13px }
+.ohd .on { color: #003; font-weight: bold }
+.ohd .m { font-weight: normal; color: #22406e; float: right; font-size: 12px }
+.opt.picked > .ohd { background-color: #e8f6ec; border-left: 3px solid #1d6b33 }
+.obd { background-color: #e8f8f8; padding: 2px 6px }
+.obd table { width: auto }
+
+.ln.hit td { background-color: #fff6a8 }
+.ln.hit.cur td { background-color: #ffd98a }
+#page.mode-all .ln.g:not(.hit) td { background-color: #e6e6e6 }
+mark { background-color: #ffe680; color: inherit; font-weight: bold }
+.hit.cur mark { background-color: #ff9c2e }
+.found { margin-left: 10px; font-family: monospace; font-size: 13px; color: #555 }
+.found a { text-decoration: none; padding: 0 5px; color: #003; font-weight: bold }
+.note { color: #555; font-size: 12px; font-family: monospace; white-space: pre-wrap }
+
+#shell { flex: 1 1 auto; min-height: 0; display: flex; gap: 14px }
+#side { flex: 0 0 190px; width: 190px; border: 1px solid #7fa9ff;
+        background-color: #f4f8ff; overflow-y: auto }
+#side .sh { background-color: #7fa9ff; color: #003; font-weight: bold; padding: 3px 8px }
+#side ul { list-style: none; margin: 0; padding: 4px 0 }
+#side li { margin: 0 }
+#side a { display: block; padding: 2px 8px; text-decoration: none;
+          color: #009; font-size: 14px }
+#side a:hover { background-color: #dce8ff }
+#side a.on { background-color: #6cf; font-weight: bold }
+#body { flex: 1 1 auto; min-width: 0; overflow-y: auto }
+
+.loading { padding: 12px; font-family: monospace; font-size: 13px; color: #333 }
+
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="page" :class="[mode, { debug: debugOn }]">
+    <div id="top">
+      <h1>Remember11 &mdash; The Age of Infinity</h1>
+      <p style="display: flex; align-items: center; flex-wrap: wrap;">
+        find: <input class="find" @input="onFindInput"
+                      @keydown.enter.prevent="step(cur + 1)">
+        <span class="found" :class="{ hidden: !query }"><a href="#"
+          @click.prevent="step(cur - 1)">&lt;</a>{{ hits.length ? cur + 1 : 0 }}/{{ hits.length }}<a href="#"
+          @click.prevent="step(cur + 1)">&gt;</a></span>
+        &nbsp; <label><input type="checkbox" v-model="searchAll"> all chapters</label>
+        &nbsp; <span class="note">{{ resultNote }}</span>
+       
+        <label style="margin-left: auto"><input type="checkbox" v-model="debugOn"> debug mode (spoiler warning)</label>
+        
+      </p>
+      <p style="display: flex; align-items: center; flex-wrap: wrap;">
+        save: <span class="note">{{ savedLine }}</span>
+        &nbsp; <input type="file" @change="loadSave($event.target.files[0])">
+        
+        &nbsp; <span class="note">{{ note }}</span>
+        <label style="margin-left: auto"><input type="checkbox" v-model="showAll"> show everything (spoiler warning)</label>
+      </p>
+      <p id="dbg" v-if="debugOn"><span>{{ statsLine }}</span> &middot;
+        <span>{{ dataFile }} &middot; build {{ build }}</span></p>
+
+      <p>
+        <a href="#" @click.prevent="setAllExpanded(true)">expand all</a>
+        &nbsp; <a href="#" @click.prevent="setAllExpanded(false)">collapse all</a>
+      </p>
+    </div>
+
+    <div id="shell">
+      <div id="side">
+        <div class="sh">Chapters</div>
+        <ul>
+          <li v-for="c in chapters" :key="c.name"><a href="#"
+            :class="{ on: visibleChapters.length && visibleChapters[0].name === c.name }"
+            @click.prevent="showChapter(c.name)">{{ c.name }}</a></li>
+        </ul>
+      </div>
+
+      <div id="body"><div id="view">
+        <div v-if="loadError" class="loading"><pre>{{ loadError }}</pre></div>
+        <div v-else-if="!data" class="loading">loading {{ dataFile }} ...</div>
+        <template v-else>
+          <template v-for="c in visibleChapters" :key="c.name">
+            <h3>{{ c.name }} &nbsp;&middot;&nbsp; {{ c.scenes.length }} scenes</h3>
+            <scene-view v-for="sc in c.scenes" :key="sc.name" :scene="sc"
+                        :seen-map="seenMap" :taken-map="takenMap"></scene-view>
+          </template>
+          <div v-if="!visibleChapters.length">
+            <p v-if="resultNote">{{ resultNote }}</p>
+            <p v-else-if="chapters.length">no read lines in this chapter</p>
+            <p v-else-if="showAll">no scenes</p>
+            <p v-else-if="!seenMap">no save imported</p>
+            <p v-else>no read lines in this script</p>
+          </div>
+        </template>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<template id="scene-view">
+  <div class="scene">
+    <div class="hd" @click="toggle">
+      <span class="tw">{{ expanded ? "▾" : "▸" }}</span><span class="n">{{ scene.name || ("entry" + scene.id) }}</span><span
+        class="m">{{ counts.lines }} lines<template v-if="counts.choices"> &middot; {{ counts.choices }} choice(s) / {{ counts.options }} options</template><template
+        v-if="counts.cmds"> &middot; {{ counts.cmds }} cmd/raw</template></span>
+    </div>
+    <div class="bd" :class="{ hidden: !expanded }" :data-sk="key">
+      <step-list :steps="scene.steps || []" :seen-map="seenMap" :taken-map="takenMap"
+                 :path="scene.name || String(scene.id)"></step-list>
+    </div>
+  </div>
+</template>
+
+<template id="step-list">
+  <table>
+    <template v-for="(s, i) in steps" :key="i">
+      <tr v-if="s.t === 'text'" class="ln"
+          :class="[i % 2 ? 'r1' : 'r0', s.who ? 'dia' : 'nar',
+                   { un: hidden(s), g: greyed(s) }]"
+          :data-i="flatIndex(s)">
+        <td class="id"><span class="who" v-html="label(s)"></span></td>
+        <td class="tx" v-html="cell(s)"></td>
+      </tr>
+
+      <tr v-else-if="s.t === 'title'" class="titlerow" :class="{ un: hidden(s) }">
+        <td class="tx" colspan="2">{{ s.title || "?" }}</td>
+      </tr>
+
+      <tr v-else-if="s.t === 'raw'" class="rawrow">
+        <td class="id">{{ addr(s) }}</td>
+        <td class="bytes">{{ s.hex }} <span class="cmd">({{ s.len }} unrecognised byte{{ s.len === 1 ? "" : "s" }})</span></td>
+      </tr>
+
+      <tr v-else-if="s.t === 'cmd'" class="cmdrow">
+        <td class="id">{{ addr(s) }}</td>
+        <td><span class="op">{{ s.text }}</span> &nbsp; {{ s.hex }}</td>
+      </tr>
+
+      <tr v-else class="chwrap" :class="{ un: hidden(s) }">
+        <td colspan="2">
+          <div class="choice" :class="{ haspicked: pickedCount(s) }">
+            <div class="chd">choice &mdash; {{ s.options.length }} option{{ s.options.length === 1 ? "" : "s" }}<span
+              class="m">{{ optionsWithBody(s) }} with branch text<template v-if="pickedCount(s)"> &middot; {{ pickedCount(s) }} taken</template></span></div>
+            <div v-for="o in s.options" :key="o.index" class="opt"
+                 :class="{ picked: isPicked(o) }">
+              <div class="ohd" @click="toggleOption(i, o)">
+                <span class="tw">{{ isOpen(i, o) ? "▾" : "▸" }}</span><span
+                  class="on">&#9671;</span> <span v-html="optionLabel(o)"></span><span
+                  class="m">{{ (o.body || []).length ? (o.body || []).length + " steps" : "no branch text" }}</span>
+              </div>
+              <div class="obd" :class="{ hidden: !isOpen(i, o) }" :data-ok="optionKey(i, o)">
+                <step-list :steps="o.body || []" :seen-map="seenMap" :taken-map="takenMap"
+                           :path="optionKey(i, o)"></step-list>
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </template>
+  </table>
+</template>
+
+<script>window.R11_DATA = 'script_en.json.gz';
+window.R11_BUILD = 'r11viewer/2 69044a1e';</script>
+
+<script src="https://unpkg.com/vue@3.4.38/dist/vue.global.prod.js"
+        integrity="sha384-Z9a2xA0EIaURxthVmeQmPrgSC05eG8Lch8X4Y2+lXpTg9wcxPj2m3QNurDl5hLiS"
+        crossorigin="anonymous"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  var DATA_FILE = window.R11_DATA || 'script_en.json.gz';
+  var BUILD = window.R11_BUILD || '';
+  var { createApp, ref, shallowRef, reactive, computed, watch, nextTick,
+        onUpdated, provide, inject } = Vue;
+
+  var SAVE_SIZE = 0xD400, SAVE_MAGIC = 0x48, SAVE_CSUM_AT = 0x5BFC;
+  var READ_OFF = 0x155, READ_SIZE = 0x2000;
+  var CHOICE_OFF = 0x2355, CHOICE_SIZE = 0x100;
+
+  var SAVE_KEY = 'r11.save';
+
+  function savedRecord() {
+    try {
+      return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    } catch (err) {
+      localStorage.removeItem(SAVE_KEY);
+      return null;
+    }
+  }
+
+  function keepSave(name, buffer) {
+    var bytes = new Uint8Array(buffer), bin = '', i;
+    for (i = 0; i < bytes.length; i += 0x8000)
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    localStorage.setItem(SAVE_KEY, JSON.stringify(
+      { name: name, at: new Date().toISOString(), data: btoa(bin) }));
+  }
+
+  function keptBuffer(rec) {
+    var bin = atob(rec.data), bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  function stamp(iso) {
+    var d = new Date(iso);
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+           ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function sum32(dv, off, len) {
+    var s = 0;
+    for (var i = 0; i < len; i += 4) s = (s + dv.getUint32(off + i, true)) >>> 0;
+    return s;
+  }
+  function bitsOf(dv, off, size) {
+    var out = [];
+    for (var i = 0; i < size * 8; i++)
+      if ((dv.getUint8(off + (i >> 3)) >> (i & 7)) & 1) out.push(i);
+    return out;
+  }
+  function parseSave(buffer) {
+    if (buffer.byteLength !== SAVE_SIZE)
+      throw new Error('expected ' + SAVE_SIZE + ' bytes, got ' + buffer.byteLength);
+    var dv = new DataView(buffer);
+    if (dv.getUint16(0, true) !== SAVE_MAGIC)
+      throw new Error('block magic is not 0x48');
+    var want = dv.getUint32(SAVE_CSUM_AT, true);
+    var got = sum32(dv, 0, SAVE_CSUM_AT);
+    if (want !== got)
+      throw new Error('system-block checksum mismatch (file 0x' +
+                      want.toString(16) + ', computed 0x' + got.toString(16) + ')');
+    return { read: bitsOf(dv, READ_OFF, READ_SIZE),
+             choices: bitsOf(dv, CHOICE_OFF, CHOICE_SIZE) };
+  }
+  function bitSet(bits) {
+    var m = {};
+    for (var i = 0; i < bits.length; i++) m[bits[i]] = true;
+    return m;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  function rgbFrom444(hex) {
+    var r = parseInt(hex.charAt(0), 16) * 17,
+        g = parseInt(hex.charAt(1), 16) * 17,
+        b = parseInt(hex.charAt(2), 16) * 17;
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+
+  var PAGE_BREAK = /^%[KPN]$/i;
+
+  var markRe = null;
+  function setMarkPattern(query) {
+    if (!query) { markRe = null; return; }
+    var p = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    markRe = new RegExp(p, 'gi');
+  }
+  function markPlain(text) {
+    text = String(text == null ? '' : text);
+    if (!markRe || !text) return escapeHtml(text);
+    markRe.lastIndex = 0;
+    var out = '', last = 0, m;
+    while ((m = markRe.exec(text)) !== null) {
+      if (!m[0]) { markRe.lastIndex++; continue; }
+      out += escapeHtml(text.slice(last, m.index)) +
+             '<mark>' + escapeHtml(m[0]) + '</mark>';
+      last = m.index + m[0].length;
+    }
+    return out + escapeHtml(text.slice(last));
+  }
+  function span(text, colour) {
+    if (!text) return '';
+    var html = markPlain(text);
+    return colour ? '<span style="color:' + colour + '">' + html + '</span>' : html;
+  }
+  function renderText(raw) {
+    var s = String(raw).replace(/ {2,}/g, ' ');
+    var out = '', colour = null, i = 0, m;
+    var re = /%C([0-9A-Fa-f]{4})|%[A-Za-z]{1,2}[0-9]*/g;
+    while ((m = re.exec(s)) !== null) {
+      out += span(s.slice(i, m.index), colour);
+      if (m[1]) {
+        colour = (m[1].toUpperCase() === 'FFFF') ? null : rgbFrom444(m[1]);
+      } else if (PAGE_BREAK.test(m[0])) {
+        out += '<br>';
+      }
+      i = re.lastIndex;
+    }
+    out += span(s.slice(i), colour);
+    return out.replace(/(?:<br>\s*){2,}/g, '<br>').replace(/(?:<br>\s*)+$/, '');
+  }
+  function stripSpeakerLabel(st) {
+    var raw = st.raw || st.text || '';
+    return st.who ? raw.replace(/^[^「『]*(?=[「『])/, '') : raw;
+  }
+  function optionLabel(o) { return renderText(o.raw); }
+  function addrOf(st) {
+    return '0x' + (st.rec >>> 0).toString(16).toUpperCase().padStart(4, '0');
+  }
+
+  function chapterOf(name) {
+    var u = (name || '').toUpperCase();
+    if (u.indexOf('COEP') === 0) return 'CO Ending';
+    if (u.indexOf('SAEP') === 0) return 'SA Ending';
+    if (u.indexOf('PR') === 0) return 'Prologue';
+    var m = /^(CO|SA)(\d)/.exec(u);
+    if (m) return m[1] + m[2] + ' (' + (m[1] === 'CO' ? 'Kokoro' : 'Satoru') + ')';
+    return 'Other';
+  }
+  function countSteps(sc) {
+    var c = { lines: 0, choices: 0, options: 0, cmds: 0 };
+    (function walk(items) {
+      for (var i = 0; i < items.length; i++) {
+        var s = items[i];
+        if (s.t === 'text') c.lines++;
+        else if (s.t === 'cmd' || s.t === 'raw') c.cmds++;
+        else if (s.t === 'choice') {
+          c.choices++;
+          for (var j = 0; j < s.options.length; j++) {
+            c.options++;
+            walk(s.options[j].body || []);
+          }
+        }
+      }
+    })(sc.steps);
+    return c;
+  }
+  function flatText(chapters) {
+    var out = [];
+    function walk(items) {
+      for (var i = 0; i < items.length; i++) {
+        var s = items[i];
+        if (s.t === 'text') out.push(s);
+        else if (s.t === 'choice') {
+          for (var j = 0; j < s.options.length; j++) walk(s.options[j].body || []);
+        }
+      }
+    }
+    for (var c = 0; c < chapters.length; c++) {
+      var scenes = chapters[c].scenes;
+      for (var sc = 0; sc < scenes.length; sc++) walk(scenes[sc].steps || []);
+    }
+    return out;
+  }
+
+  function expansionStore() {
+    return reactive({ allScenes: true, allOptions: false,
+                      scenes: {}, options: {} });
+  }
+  function isExpanded(store, kind, key) {
+    var overrides = store[kind];
+    return (key in overrides) ? overrides[key] : store[kind === 'scenes' ? 'allScenes' : 'allOptions'];
+  }
+  function setExpanded(store, kind, key, open) {
+    store[kind][key] = open;
+  }
+
+  var StepList = {
+    name: 'step-list',
+    template: '#step-list',
+    inject: ['expansion', 'textIndex', 'isHidden', 'isGreyed'],
+    props: { steps: Array, seenMap: Object, takenMap: Object, path: String },
+    methods: {
+      hidden: function (st) { return this.isHidden(st); },
+      greyed: function (st) { return this.isGreyed(st); },
+      flatIndex: function (st) {
+        var m = this.textIndex();
+        return m ? m.get(st) : undefined;
+      },
+      cell: function (st) { return renderText(stripSpeakerLabel(st)); },
+      label: function (st) { return markPlain(st.who || ''); },
+      addr: addrOf,
+      optionLabel: optionLabel,
+      isPicked: function (o) {
+        return !!(this.takenMap && o.c !== undefined && this.takenMap[o.c]);
+      },
+      pickedCount: function (s) {
+        var n = 0;
+        for (var i = 0; i < s.options.length; i++)
+          if (this.isPicked(s.options[i])) n++;
+        return n;
+      },
+      optionsWithBody: function (s) {
+        var n = 0;
+        for (var i = 0; i < s.options.length; i++)
+          if ((s.options[i].body || []).length) n++;
+        return n;
+      },
+      optionKey: function (i, o) { return this.path + '.' + i + '.' + o.index; },
+      isOpen: function (i, o) {
+        return isExpanded(this.expansion, 'options', this.optionKey(i, o));
+      },
+      toggleOption: function (i, o) {
+        setExpanded(this.expansion, 'options', this.optionKey(i, o), !this.isOpen(i, o));
+      }
+    }
+  };
+
+  var SceneView = {
+    name: 'scene-view',
+    template: '#scene-view',
+    components: { StepList: StepList },
+    inject: ['expansion'],
+    props: { scene: Object, seenMap: Object, takenMap: Object },
+    computed: {
+      counts: function () { return countSteps(this.scene); },
+      key: function () { return 'scene:' + (this.scene.name || this.scene.id); },
+      expanded: function () {
+        return isExpanded(this.expansion, 'scenes', this.key);
+      }
+    },
+    methods: {
+      toggle: function () {
+        setExpanded(this.expansion, 'scenes', this.key, !this.expanded);
+      }
+    }
+  };
+
+  var App = {
+    name: 'app',
+    components: { SceneView: SceneView, StepList: StepList },
+    setup: function () {
+      var data = shallowRef(null);
+      var loadError = ref('');
+      var seenMap = ref(null);
+      var takenMap = ref(null);
+      var showAll = ref(false);
+      var debugOn = ref(false);
+      var query = ref('');
+      var searchAll = ref(false);
+      var activeChapter = ref(null);
+      var cur = ref(0);
+      var note = ref('');
+      var saveAt = ref('');
+      var saveName = ref('');
+
+      var expansion = expansionStore();
+      provide('expansion', expansion);
+
+      var hitElements = [];      var paintedQuery = null;
+
+      function hasRead(steps) {
+        if (!seenMap.value) return false;
+        for (var i = 0; i < steps.length; i++) {
+          var st = steps[i];
+          if (st.t === 'text') {
+            if (st.o !== undefined && seenMap.value[st.o]) return true;
+          } else if (st.t === 'choice') {
+            for (var j = 0; j < st.options.length; j++)
+              if (hasRead(st.options[j].body || [])) return true;
+          }
+        }
+        return false;
+      }
+
+      var shownScenes = computed(function () {
+        var all = (data.value && data.value.scenes) || [];
+        if (showAll.value) return all;
+        return all.filter(function (sc) { return hasRead(sc.steps || []); });
+      });
+
+      var chapters = computed(function () {
+        var order = [], by = {};
+        var all = shownScenes.value;
+        for (var i = 0; i < all.length; i++) {
+          var name = chapterOf(all[i].name);
+          if (!by[name]) { by[name] = { name: name, scenes: [] }; order.push(name); }
+          by[name].scenes.push(all[i]);
+        }
+        return order.map(function (name) { return by[name]; });
+      });
+
+      var MAX_RESULT_SCENES = 30;
+      var matches1 = function (st) {
+        return !!query.value &&
+               (st.text || '').toLowerCase().indexOf(query.value) >= 0;
+      };
+      function sceneHasShownMatch(steps) {
+        for (var i = 0; i < steps.length; i++) {
+          var s = steps[i];
+          if (s.t === 'text') {
+            if (matches1(s) && !isHidden(s)) return true;
+          } else if (s.t === 'choice') {
+            if (isHidden(s)) continue;
+            for (var j = 0; j < s.options.length; j++) {
+              var o = s.options[j];
+              if (matches1(o)) return true;
+              if (sceneHasShownMatch(o.body || [])) return true;
+            }
+          }
+        }
+        return false;
+      }
+      var resultView = computed(function () {
+        return !!(searchAll.value && query.value);
+      });
+      var results = computed(function () {
+        var out = { chapters: [], shown: 0, visible: 0 };
+        if (!resultView.value) return out;
+        var all = (data.value && data.value.scenes) || [];
+        var order = [], by = {};
+        for (var i = 0; i < all.length; i++) {
+          if (!sceneHasShownMatch(all[i].steps || [])) continue;
+          out.visible++;
+          if (out.shown >= MAX_RESULT_SCENES) continue;
+          out.shown++;
+          var name = chapterOf(all[i].name);
+          if (!by[name]) { by[name] = { name: name, scenes: [] }; order.push(name); }
+          by[name].scenes.push(all[i]);
+        }
+        out.chapters = order.map(function (n) { return by[n]; });
+        return out;
+      });
+      var resultNote = computed(function () {
+        if (!resultView.value) return '';
+        var r = results.value;
+        if (!r.visible) return 'no matches';
+        if (r.shown < r.visible) return r.shown + ' of ' + r.visible + ' scenes';
+        return r.visible + ' scene' + (r.visible === 1 ? '' : 's');
+      });
+
+      var visibleChapters = computed(function () {
+        if (resultView.value) return results.value.chapters;
+        var ch = chapters.value;
+        if (!ch.length) return [];
+        if (activeChapter.value === null) return [ch[0]];
+        var picked = ch.filter(function (c) { return c.name === activeChapter.value; });
+        return picked.length ? picked : [ch[0]];
+      });
+
+      var flatSteps = computed(function () { return flatText(visibleChapters.value); });
+
+      var textIndex = computed(function () {
+        var m = new WeakMap();
+        flatSteps.value.forEach(function (s, i) { m.set(s, i); });
+        return m;
+      });
+      provide('textIndex', function () { return textIndex.value; });
+      provide('isHidden', function (st) { return isHidden(st); });
+      provide('isGreyed', function (st) { return greyed(st); });
+
+      function matches(st) { return matches1(st); }
+      function unseenBySave(st) {
+        return !!(seenMap.value && (st.o === undefined || !seenMap.value[st.o]));
+      }
+      function isHidden(st) {
+        if (showAll.value) return false;
+        if (!seenMap.value) return true;
+        return unseenBySave(st);
+      }
+      function rowVisible(st) { return !isHidden(st); }
+      function greyed(st) {
+        return !!(showAll.value && seenMap.value && unseenBySave(st));
+      }
+      var hits = computed(function () {
+        return flatSteps.value.filter(function (st) {
+          return matches(st) && rowVisible(st);
+        });
+      });
+
+      function clampCurrentHit() {
+        if (cur.value >= hits.value.length) cur.value = 0;
+      }
+      function markCurrentHit() {
+        for (var k = 0; k < hitElements.length; k++) {
+          var el = hitElements[k];
+          if (!el) continue;
+          var cls = el.className.replace(/\s*cur\b/, '');
+          el.className = (k === cur.value) ? cls + ' cur' : cls;
+        }
+        clampCurrentHit();
+      }
+
+      function paintSearchMarks() {
+        var view = document.getElementById('view');
+        if (!view) return;
+        if (!query.value && paintedQuery === null) return;
+        var els = view.querySelectorAll('.ln');
+        var steps = flatSteps.value;
+        var newTerm = (paintedQuery !== query.value);
+        var found = [];
+        for (var i = 0; i < els.length; i++) {
+          var el = els[i];
+          var at = el.dataset.i;
+          if (at === undefined) continue;
+          var row = steps[+at];
+          if (!row) continue;
+          var hit = matches(row) && rowVisible(row);
+          if (hit !== !!el._hit || (hit && newTerm)) {
+            var who = el.querySelector('.id .who');
+            if (who) who.innerHTML = markPlain(row.who || '');
+            var cell = el.querySelector('.tx');
+            if (cell) cell.innerHTML = renderText(stripSpeakerLabel(row));
+          }
+          var cls = 'ln ' + (row.who ? 'dia' : 'nar');
+          cls += el.classList.contains('r1') ? ' r1' : ' r0';
+          if (isHidden(row)) cls += ' un';
+          if (greyed(row)) cls += ' g';
+          if (hit) cls += ' hit';
+          if (el.className !== cls) el.className = cls;
+          el._hit = hit;
+          if (hit) found.push({ at: +at, el: el });
+        }
+        found.sort(function (a, b) { return a.at - b.at; });
+        hitElements = found.map(function (f) { return f.el; });
+        paintedQuery = query.value;
+        clampCurrentHit();
+        markCurrentHit();
+      }
+
+      function expandAncestors(el) {
+        for (var node = el; node && node !== document.body; node = node.parentNode) {
+          if (!node.dataset) continue;
+          if (node.dataset.sk) setExpanded(expansion, 'scenes', node.dataset.sk, true);
+          if (node.dataset.ok) setExpanded(expansion, 'options', node.dataset.ok, true);
+        }
+      }
+
+      var scrollTimer = null;
+      function scrollToHit(i) {
+        if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null; }
+        if (!hitElements.length) return;
+        cur.value = ((i % hitElements.length) + hitElements.length) % hitElements.length;
+        markCurrentHit();
+        var el = hitElements[cur.value];
+        if (!el) return;
+        expandAncestors(el);
+        nextTick(function () {
+          if (el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+        });
+      }
+      function scheduleScrollToFirstHit() {
+        if (scrollTimer) clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(function () {
+          scrollTimer = null;
+          if (hitElements.length) scrollToHit(0);
+        }, 250);
+      }
+
+      watch(query, function () {
+        setMarkPattern(query.value);
+        cur.value = 0;
+        paintedQuery = undefined;
+        nextTick(paintSearchMarks);
+        scheduleScrollToFirstHit();
+      });
+      onUpdated(paintSearchMarks);
+
+      function applySave(buffer) {
+        var parsed = parseSave(buffer);
+        seenMap.value = bitSet(parsed.read);
+        takenMap.value = bitSet(parsed.choices);
+        showAll.value = false;
+      }
+
+      function loadSave(file) {
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onerror = function () {
+          seenMap.value = null;
+          takenMap.value = null;
+          note.value = 'could not read ' + file.name;
+        };
+        reader.onload = function () {
+          try {
+            applySave(reader.result);
+            keepSave(file.name, reader.result);
+            saveAt.value = new Date().toISOString();
+            note.value = '';
+          } catch (err) {
+            seenMap.value = null;
+            takenMap.value = null;
+            note.value = 'could not read that save \u2014 ' + err.message;
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      function restoreSave() {
+        var rec = savedRecord();
+        if (!rec) return;
+        try {
+          applySave(keptBuffer(rec));
+          saveAt.value = rec.at;
+          saveName.value = rec.name;
+        } catch (err) {
+          localStorage.removeItem(SAVE_KEY);
+        }
+      }
+
+      function setAllExpanded(open) {
+        expansion.allScenes = open;
+        expansion.allOptions = open;
+        expansion.scenes = {};
+        expansion.options = {};
+      }
+
+      function showChapter(name) {
+        activeChapter.value = name;
+        searchAll.value = false;
+      }
+
+      var mode = computed(function () {
+        return showAll.value ? 'mode-all'
+                             : (seenMap.value ? 'mode-seen' : 'mode-none');
+      });
+      var statsLine = computed(function () {
+        var s = (data.value && data.value.stats) || {};
+        return s.scenes + ' scenes \u00b7 ' + s.text_lines + ' lines \u00b7 ' +
+               s.choice_points + ' choices \u00b7 ' + s.choice_options + ' options';
+      });
+      var savedLine = computed(function () {
+        if (!saveAt.value) return '';
+        return saveName.value + ' loaded at ' + stamp(saveAt.value);
+      });
+
+      restoreSave();
+
+      fetch(DATA_FILE)
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          if (!window.DecompressionStream)
+            throw new Error('this browser cannot inflate ' + DATA_FILE);
+          return new Response(
+            r.body.pipeThrough(new DecompressionStream('gzip'))).json();
+        })
+        .then(function (d) { data.value = d; })
+        .catch(function (err) {
+          loadError.value = location.protocol === 'file:'
+            ? 'file:// cannot read ' + DATA_FILE + '\nserve the folder over http'
+            : 'could not load ' + DATA_FILE + ': ' + err.message;
+        });
+
+      return {
+        data: data, loadError: loadError, note: note,
+        seenMap: seenMap, takenMap: takenMap, savedLine: savedLine,
+        showAll: showAll, debugOn: debugOn,
+        query: query, activeChapter: activeChapter,
+        searchAll: searchAll, resultNote: resultNote,
+        chapters: chapters, visibleChapters: visibleChapters,
+        hits: hits, mode: mode, statsLine: statsLine, cur: cur,
+        build: BUILD, dataFile: DATA_FILE,
+        loadSave: loadSave,
+        onFindInput: function (e) {
+          query.value = e.target.value.trim().toLowerCase();
+        },
+        step: scrollToHit,
+        showChapter: showChapter,
+        setAllExpanded: setAllExpanded
+      };
+    }
+  };
+
+  createApp(App).mount('#app');
+}());
+</script>
+</body>
+</html>
