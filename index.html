@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Remember11 &mdash; The Age of Infinity &mdash; script flow</title>
+<title>Remember11 - The Age of Infinity</title>
 <style type="text/css" media="screen">
 
 html, body, #app { height: 100% }
@@ -102,7 +102,7 @@ mark { background-color: #ffe680; color: inherit; font-weight: bold }
 <div id="app">
   <div id="page" :class="[mode, { debug: debugOn }]">
     <div id="top">
-      <h1>Remember11 &mdash; The Age of Infinity</h1>
+      <h1>Remember11 - The Age of Infinity</h1>
       <p style="display: flex; align-items: center; flex-wrap: wrap;">
         find: <input class="find" @input="onFindInput"
                       @keydown.enter.prevent="step(cur + 1)">
@@ -205,7 +205,7 @@ mark { background-color: #ffe680; color: inherit; font-weight: bold }
       <tr v-else class="chwrap" :class="{ un: hidden(s) }">
         <td colspan="2">
           <div class="choice" :class="{ haspicked: pickedCount(s) }">
-            <div class="chd">choice &mdash; {{ s.options.length }} option{{ s.options.length === 1 ? "" : "s" }}<span
+            <div class="chd">choice - {{ s.options.length }} option{{ s.options.length === 1 ? "" : "s" }}<span
               class="m">{{ optionsWithBody(s) }} with branch text<template v-if="pickedCount(s)"> &middot; {{ pickedCount(s) }} taken</template></span></div>
             <div v-for="o in s.options" :key="o.index" class="opt"
                  :class="{ picked: isPicked(o) }">
@@ -227,7 +227,7 @@ mark { background-color: #ffe680; color: inherit; font-weight: bold }
 </template>
 
 <script>window.R11_DATA = 'script_en.json.gz';
-window.R11_BUILD = 'r11viewer/2 69044a1e';</script>
+window.R11_BUILD = 'r11viewer/2 7a7daa6c';</script>
 
 <script src="https://unpkg.com/vue@3.4.38/dist/vue.global.prod.js"
         integrity="sha384-Z9a2xA0EIaURxthVmeQmPrgSC05eG8Lch8X4Y2+lXpTg9wcxPj2m3QNurDl5hLiS"
@@ -372,8 +372,9 @@ window.R11_BUILD = 'r11viewer/2 69044a1e';</script>
     return '0x' + (st.rec >>> 0).toString(16).toUpperCase().padStart(4, '0');
   }
 
-  function chapterOf(name) {
-    var u = (name || '').toUpperCase();
+  function chapterOf(sc) {
+    if (sc && sc.chapter) return sc.chapter;
+    var u = (sc && sc.name || '').toUpperCase();
     if (u.indexOf('COEP') === 0) return 'CO Ending';
     if (u.indexOf('SAEP') === 0) return 'SA Ending';
     if (u.indexOf('PR') === 0) return 'Prologue';
@@ -537,7 +538,7 @@ window.R11_BUILD = 'r11viewer/2 69044a1e';</script>
         var order = [], by = {};
         var all = shownScenes.value;
         for (var i = 0; i < all.length; i++) {
-          var name = chapterOf(all[i].name);
+          var name = chapterOf(all[i]);
           if (!by[name]) { by[name] = { name: name, scenes: [] }; order.push(name); }
           by[name].scenes.push(all[i]);
         }
@@ -578,7 +579,7 @@ window.R11_BUILD = 'r11viewer/2 69044a1e';</script>
           out.visible++;
           if (out.shown >= MAX_RESULT_SCENES) continue;
           out.shown++;
-          var name = chapterOf(all[i].name);
+          var name = chapterOf(all[i]);
           if (!by[name]) { by[name] = { name: name, scenes: [] }; order.push(name); }
           by[name].scenes.push(all[i]);
         }
